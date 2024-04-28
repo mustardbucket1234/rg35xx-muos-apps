@@ -1,6 +1,6 @@
+# A configuration file for testing
 
 VERSION = 0.3
-
 
 # paths
 OUTPUT_DIR = output/x86

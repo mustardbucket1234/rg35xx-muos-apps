@@ -1,3 +1,8 @@
+# Place .c/.h files in the ./src directory
+# Place assets in the ./assets directory
+# Run make to compile the app into the ./output directory
+# Set CONFIG_ARM7=1 to compile for the RG35XX
+
 ifeq ($(CONFIG_ARM7), 1)
 include ./config/configArm7.mk
 else

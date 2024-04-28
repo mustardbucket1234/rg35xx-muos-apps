@@ -1,6 +1,9 @@
+# Cross Compiler Config for Linux x86 -> RG35XX
+# Install the RG35xx+ Batocera toolchain from here:
+# https://github.com/rg35xx-cfw/rg35xx-cfw.github.io/releases/tag/rg35xx_plus_h_sdk_20240207
+# Extract the toolchain to /opt/rg35xx
 
 VERSION = 0.3
-
 
 # paths
 OUTPUT_DIR = output/arm7
