@@ -1,0 +1,1 @@
+make CONFIG_ARM7=1
