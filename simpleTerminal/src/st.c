@@ -2614,11 +2614,15 @@ void sdlshutdown(void)
 void sdlinit(void)
 {
 	fprintf(stderr, "SDL init\n");
-	if (SDL_Init(SDL_INIT_EVERYTHING) == -1)
+	if (SDL_Init(SDL_INIT_VIDEO) == -1)
 	{
 		fprintf(stderr, "Unable to initialize SDL: %s\n", SDL_GetError());
 		exit(EXIT_FAILURE);
 	}
+
+	SDL_Init(SDL_INIT_JOYSTICK);
+	SDL_JoystickEventState(SDL_ENABLE);
+	SDL_JoystickOpen(0);
 
 	fprintf(stderr, "SDL font\n");
 	SDL_EnableUNICODE(1);
