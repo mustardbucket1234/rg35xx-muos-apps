@@ -2658,8 +2658,6 @@ void sdlinit(void)
 #endif
 
 	sdlresettitle();
-	//
-	// TODO: might need to use system threads
 	if (!(thread = SDL_CreateThread(ttythread, NULL)))
 	{
 		fprintf(stderr, "Unable to create thread: %s\n", SDL_GetError());
@@ -3120,6 +3118,10 @@ void resize(SDL_Event *e)
 
 int ttythread(void *unused)
 {
+	// Delay appears to fix XCB thread error...
+	// Could be fixing some unknown race condition
+	SDL_Delay(1500);
+
 	int i;
 	fd_set rfd;
 	struct timeval drawtimeout, *tv = NULL;
@@ -3142,18 +3144,15 @@ int ttythread(void *unused)
 			die("select failed: %s\n", SERRNO);
 		}
 
-		/*
-		 * Stop after a certain number of reads so the user does not
-		 * feel like the system is stuttering.
-		 */
+		// Stop after a certain number of reads so the user does not
+		// feel like the system is stuttering.
 		if (i < 1000 && FD_ISSET(cmdfd, &rfd))
 		{
 			ttyread();
 
-			/*
-			 * Just wait a bit so it isn't disturbing the
-			 * user and the system is able to write something.
-			 */
+			// Just wait a bit so it isn't disturbing the
+			// user and the system is able to write something.
+
 			drawtimeout.tv_sec = 0;
 			drawtimeout.tv_usec = 5;
 			tv = &drawtimeout;
@@ -3179,7 +3178,6 @@ void run(void)
 	SDL_Event ev;
 
 	printf("********** STARTING SDL EVENT LOOP **********\n");
-
 	while (SDL_WaitEvent(&ev))
 	{
 
@@ -3193,22 +3191,9 @@ void run(void)
 			{
 				printf("MSG_REQUEST_SHUTDOWN Triggered...\n");
 				break;
-				/*
-				message.type = MSG_SERVER;
-				message.data = MSG_SHUTDOWN;
-				queue_send(qid, &message);
-				sdlshutdown();
-				while (queue_read(qid, MSG_CLIENT, &message))
-				{
-					if (message.data == MSG_REQUEST_INIT)
-					{
-						sdlinit();
-						break;
-					}
-				}
-				*/
 			}
 		}
+
 		if (ev.type == SDL_QUIT)
 		{
 			printf("SDL_QUIT Triggered\n");
@@ -3241,7 +3226,6 @@ void run(void)
 		}
 		xflip();
 	}
-
 	SDL_Delay(50);
 	printf("Closing queue...\n");
 	queue_remove(qid);
@@ -3259,8 +3243,10 @@ int main(int argc, char *argv[])
 	xw.fw = xw.fh = xw.fx = xw.fy = 0;
 	xw.isfixed = false;
 
+	// Parse command line arguments
 	for (i = 1; i < argc; i++)
 	{
+		int needRun = 0;
 		switch (argv[i][0] != '-' || argv[i][2] ? -1 : argv[i][1])
 		{
 		case 'c':
@@ -3274,35 +3260,12 @@ int main(int argc, char *argv[])
 				opt_cmd = &argv[i];
 				show_help = 0;
 			}
-			goto run;
+			needRun = 1;
+			break;
 		case 'f':
 			if (++i < argc)
 				opt_font = argv[i];
 			break;
-			// TODO
-#if 0
-            case 'g':
-                if(++i >= argc)
-                    break;
-
-                bitm = XParseGeometry(argv[i], &xr, &yr, &wr, &hr);
-                if(bitm & XValue)
-                    xw.fx = xr;
-                if(bitm & YValue)
-                    xw.fy = yr;
-                if(bitm & WidthValue)
-                    xw.fw = (int)wr;
-                if(bitm & HeightValue)
-                    xw.fh = (int)hr;
-                if(bitm & XNegative && xw.fx == 0)
-                    xw.fx = -1;
-                if(bitm & XNegative && xw.fy == 0)
-                    xw.fy = -1;
-
-                if(xw.fh != 0 && xw.fw != 0)
-                    xw.isfixed = True;
-                break;
-#endif
 		case 'o':
 			if (++i < argc)
 				opt_io = argv[i];
@@ -3316,7 +3279,12 @@ int main(int argc, char *argv[])
 			break;
 		case 'v':
 		default:
-			die(USAGE);
+			die("Bad case...");
+		}
+
+		if (needRun)
+		{
+			break;
 		}
 	}
 
@@ -3324,12 +3292,7 @@ int main(int argc, char *argv[])
 	{
 		fprintf(stderr, "Unable to register SDL_Quit atexit\n");
 	}
-	/*
-	char path[PATH_MAX];
-	realpath(dirname(argv[0]), path);
-	snprintf(preload_libname, PATH_MAX + 17, "%s/libst-preload.so", path); */
 
-run:
 	setlocale(LC_CTYPE, "");
 	tnew((initial_width - 2) / 6, (initial_height - 2) / 8);
 	ttynew();
