@@ -70,13 +70,13 @@ static char *syms[2][NUM_ROWS][NUM_KEYS] = {
 	{{"esc", "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12", NULL},
 	 {"`", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "=", "bksp", "ins", "del", " ^ ", NULL},
 	 {"tab", "q", "w", "e", "r", "t", "y", "u", "i", "o", "p", "[", "]", "\\", "home", "end", " \xde ", NULL},
-	 {"caps", "a", "s", "d", "f", "g", "h", "j", "k", "l", ";", "'", "enter", "pg up", " < ", NULL},
+	 {"cap", "a", "s", "d", "f", "g", "h", "j", "k", "l", ";", "'", " enter", "pg up", " < ", NULL},
 	 {"shift", "z", "x", "c", "v", "b", "n", "m", ",", ".", "/", " shift", "pg dn", " > ", NULL},
 	 {"ctrl", "win", "alt", "   space   ", "alt", "win", "menu", "ctrl", NULL}},
 	{{"esc", "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12", NULL},
 	 {"~", "!", "@", "#", "$", "%", "^", "&", "*", "(", ")", "_", "+", "bksp", "ins", "del", " ^ ", NULL},
 	 {"tab", "Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P", "{", "}", "|", "home", "end", " \xde ", NULL},
-	 {"caps", "A", "S", "D", "F", "G", "H", "J", "K", "L", ":", "\"", "enter", "pg up", " < ", NULL},
+	 {"cap", "A", "S", "D", "F", "G", "H", "J", "K", "L", ":", "\"", " enter", "pg up", " < ", NULL},
 	 {"shift", "Z", "X", "C", "V", "B", "N", "M", "<", ">", "?", " shift", "pg dn", " > ", NULL},
 	 {"ctrl", "win", "alt", "   space   ", "alt", "win", "menu", "ctrl", NULL}}};
 
@@ -103,22 +103,15 @@ char *help =
 	"How to use:\n"
 	"  ARROWS: select key from keyboard\n"
 	"  A:  press key\n"
-	"  B:  toggle key (useful for shift/ctrl...)\n"
-#ifndef TRIMUISMART
+	"  B:  backspace \n"
 	"  L1: shift\n"
-	"  R1: backspace\n"
-#else
-	"  L:  shift\n"
-	"  R:  backspace\n"
-#endif
+	"  R1: toggle key (useful for shift/ctrl...)\n"
 	"  Y:  change keyboard location (top/bottom)\n"
 	"  X:  show / hide keyboard\n"
 	"  START:    enter\n"
 	"  SELECT:   tab\n"
-#ifndef TRIMUISMART
 	"  L2:       left\n"
 	"  R2:       right\n"
-#endif
 	"  MENU:     quit\n\n"
 	"Cheatcheet (tutorial at www.shellscript.sh):\n"
 	"  TAB key         complete path\n"
@@ -370,7 +363,7 @@ int handle_joystick_event(SDL_Event *event)
 		{
 			location = !location;
 		}
-		else if (event->jbutton.button == RGBUTTON_R1)
+		else if (event->jbutton.button == RGBUTTON_B)
 		{
 			simulate_key(SDLK_BACKSPACE, STATE_TYPED);
 		}
@@ -390,7 +383,7 @@ int handle_joystick_event(SDL_Event *event)
 		{
 			simulate_key(SDLK_RETURN, STATE_TYPED);
 		}
-		else if (event->jbutton.button == RGBUTTON_B)
+		else if (event->jbutton.button == RGBUTTON_R1)
 		{
 			toggled[selected_j][selected_i] = 1 - toggled[selected_j][selected_i];
 			if (toggled[selected_j][selected_i])
@@ -424,7 +417,7 @@ int handle_joystick_event(SDL_Event *event)
 			fprintf(stderr, "key: %d", event->key.keysym.sym);
 		}
 	}
-	else if (event->key.type == SDL_KEYUP || event->key.state == SDL_RELEASED)
+	else if (event->type == SDL_JOYBUTTONUP && event->jbutton.state == SDL_RELEASED)
 	{
 		if (event->jbutton.button == RGBUTTON_L1)
 		{

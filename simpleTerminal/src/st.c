@@ -3195,6 +3195,8 @@ int main(int argc, char *argv[])
 		case 'o':
 			if (++i < argc)
 				opt_io = argv[i];
+
+			printf("Set log file to:%s\n", opt_io);
 			break;
 		case 't':
 			if (++i < argc)
