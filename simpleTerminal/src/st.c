@@ -3200,15 +3200,35 @@ void run(void)
 			break;
 		}
 
-		if (ev.type == SDL_KEYDOWN || ev.type == SDL_KEYUP)
+		if (ev.type == SDL_JOYHATMOTION || ev.type == SDL_JOYBUTTONDOWN || ev.type == SDL_JOYBUTTONUP)
 		{
-			if (handle_keyboard_event(&ev))
+			handle_joystick_event(&ev);
+			if (ev.type == SDL_JOYBUTTONUP)
 			{
+				if (show_help == 1)
+				{
+					show_help = 0;
+				}
 			}
-			else
+		}
+		else if (ev.type == SDL_KEYDOWN || ev.type == SDL_KEYUP)
+		{
+			// Keypresses use default st handler
+			if (handler[ev.type])
+				(handler[ev.type])(&ev);
+
+			// Disable virtual key board if real key is pressed
+			// 1 << 13 is defined as synthetic keypress
+			if (!(ev.key.keysym.mod & (1 << 13)))
 			{
-				if (handler[ev.type])
-					(handler[ev.type])(&ev);
+				if (active == 1)
+				{
+					active = 0;
+				}
+			}
+			if (show_help == 1)
+			{
+				show_help = 0;
 			}
 		}
 		else

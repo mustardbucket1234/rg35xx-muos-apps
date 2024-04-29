@@ -4,6 +4,7 @@
 #define NUM_ROWS 6
 #define NUM_KEYS 18
 
+/*
 #define KEY_UP SDLK_UP
 #define KEY_DOWN SDLK_DOWN
 #define KEY_LEFT SDLK_LEFT
@@ -19,8 +20,35 @@
 #define KEY_RETURN SDLK_RETURN		   // START
 #define KEY_ARROW_LEFT SDLK_TAB		   // L2
 #define KEY_ARROW_RIGHT SDLK_BACKSPACE // R2
+*/
 
 #define KMOD_SYNTHETIC (1 << 13)
+
+enum RGPad
+{
+	RGPAD_UP = 1,
+	RGPAD_RIGHT = 2,
+	RGPAD_DOWN = 4,
+	RGPAD_LEFT = 8,
+	RGPAD_CENTER = 0,
+};
+
+enum RGButton
+{
+	RGBUTTON_VOL_DOWN = 1,
+	RGBUTTON_VOL_UP = 2,
+	RGBUTTON_A = 3,
+	RGBUTTON_B = 4,
+	RGBUTTON_Y = 5,
+	RGBUTTON_X = 6,
+	RGBUTTON_L1 = 7,
+	RGBUTTON_R1 = 8,
+	RGBUTTON_SELECT = 9,
+	RGBUTTON_START = 10,
+	RGBUTTON_MENU = 11,
+	RGBUTTON_L2 = 13,
+	RGBUTTON_R2 = 14,
+};
 
 static int row_length[NUM_ROWS] = {13, 17, 17, 15, 14, 8};
 
@@ -280,92 +308,89 @@ int compute_new_col(int visual_offset, int old_row, int new_row)
 	return new_col;
 }
 
-int handle_keyboard_event(SDL_Event *event)
+int handle_joystick_event(SDL_Event *event)
 {
 	static int visual_offset = 0;
-	if (event->key.type == SDL_KEYDOWN && !(event->key.keysym.mod & KMOD_SYNTHETIC) && event->key.keysym.sym == KEY_ACTIVATE)
+
+	// Toggle keyboard visibility
+	if (event->type == SDL_JOYBUTTONDOWN && event->jbutton.button == RGBUTTON_X)
 	{
 		active = !active;
 		return 1;
 	}
 	if (!active)
 		return 0;
-	if ((event->key.type == SDL_KEYUP || event->key.type == SDL_KEYDOWN) && event->key.keysym.mod & KMOD_SYNTHETIC)
-		return 0;
 
-	if (event->key.type == SDL_KEYDOWN && event->key.state == SDL_PRESSED)
+	if (event->type == SDL_JOYHATMOTION)
 	{
 		if (show_help)
 		{
 			// do nothing
 		}
-		else if (event->key.keysym.sym == KEY_QUIT)
-		{
-			exit(0);
-			/*		} else if(event->key.keysym.sym == KEY_HELP) {
-						show_help = 1;
-			*/
-		}
-		else if (event->key.keysym.sym == KEY_UP && selected_j > 0)
+		else if (event->jhat.value == RGPAD_UP && selected_j > 0)
 		{
 			selected_i = compute_new_col(visual_offset, selected_j, selected_j - 1);
 			selected_j--;
 			// selected_i = selected_i * row_length[selected_j] / row_length[selected_j + 1];
 		}
-		else if (event->key.keysym.sym == KEY_DOWN && selected_j < NUM_ROWS - 1)
+		else if (event->jhat.value == RGPAD_DOWN && selected_j < NUM_ROWS - 1)
 		{
 			selected_i = compute_new_col(visual_offset, selected_j, selected_j + 1);
 			selected_j++;
 			// selected_i = selected_i * row_length[selected_j] / row_length[selected_j - 1];
 		}
-		else if (event->key.keysym.sym == KEY_LEFT && selected_i > 0)
+		else if (event->jhat.value == RGPAD_LEFT && selected_i > 0)
 		{
 			selected_i--;
 			visual_offset = compute_visual_offset(selected_i, selected_j);
 		}
-		else if (event->key.keysym.sym == KEY_RIGHT && selected_i < row_length[selected_j] - 1)
+		else if (event->jhat.value == RGPAD_RIGHT && selected_i < row_length[selected_j] - 1)
 		{
 			selected_i++;
 			visual_offset = compute_visual_offset(selected_i, selected_j);
 		}
-		else if (event->key.keysym.sym == KEY_SHIFT)
+	}
+	else if (event->type == SDL_JOYBUTTONDOWN && event->jbutton.state == SDL_PRESSED)
+	{
+		if (show_help)
+		{
+			// do nothing
+		}
+		else if (event->jbutton.button == RGBUTTON_MENU)
+		{
+			exit(0);
+		}
+		else if (event->jbutton.button == RGBUTTON_L1)
 		{
 			shifted = 1;
 			toggled[4][0] = 1;
 			update_modstate(SDLK_LSHIFT, STATE_DOWN);
 		}
-		else if (event->key.keysym.sym == KEY_LOCATION)
+		else if (event->jbutton.button == RGBUTTON_Y)
 		{
 			location = !location;
 		}
-		else if (event->key.keysym.sym == KEY_BACKSPACE)
+		else if (event->jbutton.button == RGBUTTON_R1)
 		{
 			simulate_key(SDLK_BACKSPACE, STATE_TYPED);
-/*		} else if(event->key.keysym.sym == KEY_ARROW_UP) {
-			simulate_key(SDLK_UP, STATE_TYPED);
-		} else if(event->key.keysym.sym == KEY_ARROW_DOWN) {
-			simulate_key(SDLK_DOWN, STATE_TYPED);
-*/
-#ifndef TRIMUISMART
 		}
-		else if (event->key.keysym.sym == KEY_ARROW_LEFT)
+		else if (event->jbutton.button == RGBUTTON_L2)
 		{
 			simulate_key(SDLK_LEFT, STATE_TYPED);
 		}
-		else if (event->key.keysym.sym == KEY_ARROW_RIGHT)
+		else if (event->jbutton.button == RGBUTTON_R2)
 		{
 			simulate_key(SDLK_RIGHT, STATE_TYPED);
-#endif
 		}
-		else if (event->key.keysym.sym == KEY_TAB)
+		else if (event->jbutton.button == RGBUTTON_SELECT)
 		{
 			simulate_key(SDLK_TAB, STATE_TYPED);
 		}
-		else if (event->key.keysym.sym == KEY_RETURN)
+		else if (event->jbutton.button == RGBUTTON_START)
 		{
 			simulate_key(SDLK_RETURN, STATE_TYPED);
 		}
-		else if (event->key.keysym.sym == KEY_TOGGLE)
+		else if (event->jbutton.button == RGBUTTON_B)
 		{
 			toggled[selected_j][selected_i] = 1 - toggled[selected_j][selected_i];
 			if (toggled[selected_j][selected_i])
@@ -375,7 +400,7 @@ int handle_keyboard_event(SDL_Event *event)
 			if (selected_j == 4 && (selected_i == 0 || selected_i == 11))
 				shifted = toggled[selected_j][selected_i];
 		}
-		else if (event->key.keysym.sym == KEY_ENTER)
+		else if (event->jbutton.button == RGBUTTON_A)
 		{
 			int key = keys[shifted][selected_j][selected_i];
 			if (mod_state & KMOD_CTRL)
@@ -401,11 +426,7 @@ int handle_keyboard_event(SDL_Event *event)
 	}
 	else if (event->key.type == SDL_KEYUP || event->key.state == SDL_RELEASED)
 	{
-		if (show_help)
-		{
-			show_help = 0;
-		}
-		else if (event->key.keysym.sym == KEY_SHIFT)
+		if (event->jbutton.button == RGBUTTON_L1)
 		{
 			shifted = 0;
 			toggled[4][0] = 0;
