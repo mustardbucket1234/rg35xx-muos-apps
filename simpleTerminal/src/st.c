@@ -393,11 +393,6 @@ static void (*handler[SDL_NUMEVENTS])(SDL_Event *) = {
 	[SDL_MOUSEMOTION] = bmotion,
 	[SDL_MOUSEBUTTONDOWN] = bpress,
 	[SDL_MOUSEBUTTONUP] = brelease,
-#if 0
-	[SelectionClear] = selclear,
-	[SelectionNotify] = selnotify,
-	[SelectionRequest] = selrequest,
-#endif
 };
 
 /* Globals */
@@ -410,7 +405,6 @@ static int cmdfd;
 static pid_t pid;
 static Selection sel;
 static int iofd = -1;
-static char **opt_cmd = NULL;
 static char *opt_io = NULL;
 static char *opt_title = NULL;
 static char *opt_class = NULL;
@@ -418,6 +412,8 @@ static char *opt_font = NULL;
 
 static char *usedfont = NULL;
 static int usedfontsize = 0;
+
+char *initialCommand = NULL;
 
 ssize_t
 xwrite(int fd, char *s, size_t len)
@@ -898,104 +894,12 @@ void selcopy(void)
 	xsetsel(str);
 }
 
-#if 0
-void
-selnotify(SDL_Event *e) {
-(void)e;
-// TODO
-	ulong nitems, ofs, rem;
-	int format;
-	uchar *data;
-	Atom type;
-
-	ofs = 0;
-	do {
-		if(XGetWindowProperty(xw.dpy, xw.win, XA_PRIMARY, ofs, BUFSIZ/4,
-					False, AnyPropertyType, &type, &format,
-					&nitems, &rem, &data)) {
-			fprintf(stderr, "Clipboard allocation failed\n");
-			return;
-		}
-		ttywrite((const char *) data, nitems * format / 8);
-		XFree(data);
-		/* number of 32-bit chunks returned */
-		ofs += nitems * format / 32;
-	} while(rem > 0);
-}
-#endif
-
 void selpaste(void)
 {
-// TODO
-#if 0
-	XConvertSelection(xw.dpy, XA_PRIMARY, sel.xtarget, XA_PRIMARY,
-			xw.win, CurrentTime);
-#endif
 }
-
-#if 0
-void selclear(SDL_Event *e) {
-	(void)e;
-	if(sel.bx == -1)
-		return;
-	sel.bx = -1;
-	tsetdirt(sel.b.y, sel.e.y);
-}
-
-void
-selrequest(SDL_Event *e) {
-(void)e;
-// TODO
-	XSelectionRequestEvent *xsre;
-	XSelectionEvent xev;
-	Atom xa_targets, string;
-
-	xsre = (XSelectionRequestEvent *) e;
-	xev.type = SelectionNotify;
-	xev.requestor = xsre->requestor;
-	xev.selection = xsre->selection;
-	xev.target = xsre->target;
-	xev.time = xsre->time;
-	/* reject */
-	xev.property = None;
-
-	xa_targets = XInternAtom(xw.dpy, "TARGETS", 0);
-	if(xsre->target == xa_targets) {
-		/* respond with the supported type */
-		string = sel.xtarget;
-		XChangeProperty(xsre->display, xsre->requestor, xsre->property,
-				XA_ATOM, 32, PropModeReplace,
-				(uchar *) &string, 1);
-		xev.property = xsre->property;
-	} else if(xsre->target == sel.xtarget && sel.clip != NULL) {
-		XChangeProperty(xsre->display, xsre->requestor, xsre->property,
-				xsre->target, 8, PropModeReplace,
-				(uchar *) sel.clip, strlen(sel.clip));
-		xev.property = xsre->property;
-	}
-
-	/* all done, send a notification to the listener */
-	if(!XSendEvent(xsre->display, xsre->requestor, True, 0, (XEvent *) &xev))
-		fprintf(stderr, "Error sending SelectionNotify event\n");
-}
-#endif
 
 void xsetsel(char *str)
 {
-	(void)str;
-// TODO
-#if 0
-	/* register the selection for both the clipboard and the primary */
-	Atom clipboard;
-
-	free(sel.clip);
-	sel.clip = str;
-
-	XSetSelectionOwner(xw.dpy, XA_PRIMARY, xw.win, CurrentTime);
-
-	clipboard = XInternAtom(xw.dpy, "CLIPBOARD", 0);
-	XSetSelectionOwner(xw.dpy, clipboard, xw.win, CurrentTime);
-#endif
 }
 
 void brelease(SDL_Event *e)
@@ -1113,9 +1017,6 @@ void execsh(void)
 	char **args;
 	char *envshell = getenv("SHELL");
 	const struct passwd *pass = getpwuid(getuid());
-#if 0
-	char buf[sizeof(long) * 8 + 1];
-#endif
 
 	unsetenv("COLUMNS");
 	unsetenv("LINES");
@@ -1137,11 +1038,6 @@ void execsh(void)
 	setenv("LD_PRELOAD", preload_libname, 1);
 	setenv("PS1", "\\[\\033[32m\\]\\W\\[\\033[00m\\]\\$ ", 1);
 
-#if 0
-	snprintf(buf, sizeof(buf), "%lu", xw.win);
-	setenv("WINDOWID", buf, 1);
-#endif
-
 	signal(SIGCHLD, SIG_DFL);
 	signal(SIGHUP, SIG_DFL);
 	signal(SIGINT, SIG_DFL);
@@ -1151,7 +1047,7 @@ void execsh(void)
 
 	DEFAULT(envshell, shell);
 	setenv("TERM", termname, 1);
-	args = opt_cmd ? opt_cmd : (char *[]){envshell, "-i", NULL};
+	args = (char *[]){envshell, "-i", NULL};
 	execvp(args[0], args);
 	exit(EXIT_FAILURE);
 }
@@ -3124,7 +3020,7 @@ int ttythread(void *unused)
 {
 	// Delay appears to fix XCB thread error...
 	// Could be fixing some unknown race condition
-	SDL_Delay(1500);
+	SDL_Delay(500);
 
 	int i;
 	fd_set rfd;
@@ -3136,6 +3032,13 @@ int ttythread(void *unused)
 	event.user.code = 0;
 	event.user.data1 = NULL;
 	event.user.data2 = NULL;
+
+	if (initialCommand)
+	{
+		ttywrite(initialCommand, strlen(initialCommand));
+		ttywrite("\r", 1);
+		initialCommand = NULL;
+	}
 
 	for (i = 0;; i++)
 	{
@@ -3270,7 +3173,6 @@ int main(int argc, char *argv[])
 	// Parse command line arguments
 	for (i = 1; i < argc; i++)
 	{
-		int needRun = 0;
 		switch (argv[i][0] != '-' || argv[i][2] ? -1 : argv[i][1])
 		{
 		case 'c':
@@ -3278,13 +3180,13 @@ int main(int argc, char *argv[])
 				opt_class = argv[i];
 			break;
 		case 'e':
-			/* eat every remaining arguments */
+			// Executre command
 			if (++i < argc)
 			{
-				opt_cmd = &argv[i];
+				initialCommand = argv[i];
+				printf("Initial Command:%s;\n", initialCommand);
 				show_help = 0;
 			}
-			needRun = 1;
 			break;
 		case 'f':
 			if (++i < argc)
@@ -3304,11 +3206,6 @@ int main(int argc, char *argv[])
 		case 'v':
 		default:
 			die("Bad case...");
-		}
-
-		if (needRun)
-		{
-			break;
 		}
 	}
 
