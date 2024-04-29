@@ -54,7 +54,8 @@ void applyRender()
 
 int main(int argc, char *argv[])
 {
-
+    setbuf(stdout, NULL);
+    printf("Starting Hello World App!\n");
     initSDL();
     // Wait for a key press before quitting
     SDL_Event event;
@@ -70,6 +71,7 @@ int main(int argc, char *argv[])
         {
             if (event.type == SDL_QUIT)
             {
+                printf("SDL_QUIT event received\n");
                 quit = 1;
                 break;
             }
@@ -94,5 +96,7 @@ int main(int argc, char *argv[])
     }
 
     SDL_Quit();
+
+    printf("Exiting Hello World App...\n");
     return 0;
 }
