@@ -1,6 +1,7 @@
 {
     "files.associations": {
         "sdl.h": "c",
-        "pthread.h": "c"
+        "pthread.h": "c",
+        "iostream": "cpp"
     }
 }
