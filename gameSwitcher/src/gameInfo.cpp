@@ -121,28 +121,21 @@ GameVisualData loadGameVisualData(GameInfoData game, string folderPath)
     GameVisualData visualData;
     if (game.active)
     {
-        printf("loadGameVisualData...: %s\n", game.name.c_str());
-        printf("folderPath.: %s\n", folderPath.c_str());
         string subFolderPath;
         for (const auto &entry : filesystem::directory_iterator(folderPath))
         {
             if (entry.is_directory())
             {
                 string filename = entry.path().filename();
-                // printf("filename: %s\n", filename.c_str());
-                printf("core: %s\n", strToUpper(game.core).c_str());
-                printf("folder: %s\n", strToUpper(filename).c_str());
                 if (strStartsWith(strToUpper(game.core), strToUpper(filename)))
                 {
                     subFolderPath = entry.path().string();
-                    printf("FOUND SAVE FOLDER");
                     break;
                 }
             }
         }
         if (subFolderPath.length() > 0)
         {
-            printf("subFolderPath: %s\n", subFolderPath.c_str());
             vector<filesystem::directory_entry> screenShots;
 
             // Check if directory exists

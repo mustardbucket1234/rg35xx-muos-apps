@@ -1,5 +1,9 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_ttf.h>
+#include <SDL2/SDL_image.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/reboot.h>
 #include <iostream>
 #include <fstream>
 #include <filesystem>
@@ -9,11 +13,7 @@
 
 #include "font.h"
 #include "gameInfo.h"
-#include <unistd.h>
-
-#include <sys/types.h>
-#include <sys/reboot.h>
-#include <SDL2/SDL_image.h>
+#include "mrenderer.h"
 
 using namespace std;
 namespace fs = std::filesystem;
@@ -37,7 +37,8 @@ string MUOS_HISTORY_DIR = "/mnt/mmc/MUOS/info/history";
 string MUOS_SAVE_DIR = "/mnt/mmc/MUOS/save/state";
 #endif
 
-SDL_Color defaultTextColor = {0, 0, 0, 255};
+SDL_Color defaultTextColor = {255, 255, 255, 255};
+SDL_Color shadowTextColor = {0, 0, 0, 225};
 SDL_Window *window = nullptr;
 SDL_Renderer *renderer = nullptr;
 TTF_Font *defaultFont = nullptr;
@@ -47,6 +48,7 @@ SDL_Joystick *joystick = nullptr;
 vector<GameInfoData> gameList;
 GameInfoData selectedGame;
 GameVisualData selectedGameVisual;
+Mustard::Renderer *mrenderer = nullptr;
 int selectedGameIndex;
 
 enum RGPad
@@ -77,6 +79,7 @@ enum RGButton
 
 void initSDL()
 {
+
     // Initialize SDL
     SDL_Init(SDL_INIT_VIDEO | SDL_INIT_JOYSTICK);
 
@@ -86,16 +89,23 @@ void initSDL()
 
     window = SDL_CreateWindow("SDL2 Example", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, hwWidth, hwHeight, SDL_WINDOW_SHOWN);
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_SOFTWARE);
-
+    if (renderer)
+    {
+        if (mrenderer != nullptr)
+        {
+            delete mrenderer;
+        }
+        mrenderer = new Mustard::Renderer(renderer);
+    }
     TTF_Init();
-    defaultFont = TTF_OpenFont("assets/font/CourierPrime-Regular.ttf", 24);
-    titleFont = TTF_OpenFont("assets/font/CourierPrime-Regular.ttf", 90);
+    defaultFont = TTF_OpenFont("assets/font/Allerta-Regular.ttf", 22);
+    titleFont = TTF_OpenFont("assets/font/Allerta-Regular.ttf", 45);
 }
 
 // Clear buffers
 void startRender()
 {
-    SDL_SetRenderDrawColor(renderer, 128, 128, 128, 255);
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     SDL_RenderClear(renderer);
 }
 
@@ -107,22 +117,35 @@ void renderBlackScreen()
 // Render screen
 void renderGameSwitcher()
 {
-    SDL_Color textColor = {255, 25, 150, 0};
 
     bool drawPicture = true;
     bool drawList = false;
 
     if (drawPicture)
     {
+        string bg = "assets/theme/bg.png";
+        string header = "assets/theme/header.png";
+        string footer = "assets/theme/footer.png";
+        mrenderer->draw(bg, 0, 0, 640, 480);
+        if (selectedGameVisual.active)
+        {
+            // Draw the image
+            string path = selectedGameVisual.filePath;
+            mrenderer->drawPreserveAspect(path, 320, 240, 640, 480, 0, 1);
+        }
+
+        mrenderer->draw(header, 0, 0, 640, 40);
+        mrenderer->draw(footer, 0, 440, 640, 40);
         if (selectedGame.active)
         {
             string prettyName = selectedGame.name;
-            int maxLen = 40;
+            int maxLen = 48;
             if (prettyName.length() > maxLen)
             {
                 prettyName = prettyName.substr(0, maxLen - 2) + "...";
             }
-            drawTextCentered(prettyName, defaultFont, renderer, 0, 400, 640, defaultTextColor);
+            drawTextCentered(prettyName, defaultFont, renderer, 2, 7, 640, shadowTextColor);
+            drawTextCentered(prettyName, defaultFont, renderer, 0, 4, 640, defaultTextColor);
         }
     }
     if (drawList)
@@ -147,22 +170,6 @@ void renderGameSwitcher()
         }
         drawTextWrapped(text, defaultFont, renderer, 4, 12, 640, defaultTextColor);
     }
-    if (selectedGameVisual.active)
-    {
-        drawTextCentered(selectedGameVisual.filePath, defaultFont, renderer, 4, 25, 640, defaultTextColor);
-
-        // Draw the image
-
-        SDL_Surface *surface = IMG_Load(selectedGameVisual.filePath.c_str());
-        if (surface != nullptr)
-        {
-            SDL_Texture *texture = SDL_CreateTextureFromSurface(renderer, surface);
-            SDL_RenderCopy(renderer, texture, nullptr, nullptr);
-            SDL_FreeSurface(surface);
-            SDL_DestroyTexture(texture);
-        }
-    }
-    drawTextCentered("A:Start    X:Quit    MENU:Power", defaultFont, renderer, 4, 440, 640, defaultTextColor);
 }
 
 // Blit a color to the screen. Can be transparent
@@ -289,7 +296,7 @@ void startSDLPhase()
         updateSelectedGame();
 
         // Shutdown if MENU or ESCAPE is held
-        if (sdlTime > 0.25 && (SDL_JoystickGetButton(joystick, RGBUTTON_MENU) || keyboardState[SDL_SCANCODE_ESCAPE]))
+        if (sdlTime > 0.35 && (SDL_JoystickGetButton(joystick, RGBUTTON_MENU) || keyboardState[SDL_SCANCODE_ESCAPE]))
         {
             // drawTextCentered("Hold to Power Off...", defaultFont, renderer, 0, 200, 640, defaultTextColor);
             // if (shutoffHoldTimer > 0.4)
@@ -416,7 +423,8 @@ int main(int argc, char *argv[])
                 printf("Finished writing Game Info\n\n");
                 printf("Proceeding to game...\n");
 
-                renderColor({0, 0, 0, 170});
+                renderColor({0, 0, 0, 180});
+                // drawTextCentered("Launching Game...", titleFont, renderer, 0, 200, 640, {255, 255, 255, 45});
                 applyRender();
 
                 std::this_thread::sleep_for(std::chrono::milliseconds(25));
