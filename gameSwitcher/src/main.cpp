@@ -28,7 +28,7 @@ string ROM_GO = "/tmp/rom_go";
 
 #ifdef DEBUG
 bool debugMode = true;
-string MUOS_HISTORY_DIR = "/mnt/e/RG35xx/MuOSDump/.mnt.mmc/MUOS/info/history";
+string MUOS_HISTORY_DIR = "/mnt/muOSDump/mnt/mmc/MUOS/info/history";
 #else
 bool debugMode = false;
 string MUOS_HISTORY_DIR = "/mnt/mmc/MUOS/info/history";
@@ -91,7 +91,7 @@ void initSDL()
 // Clear buffers
 void startRender()
 {
-    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+    SDL_SetRenderDrawColor(renderer, 128, 128, 128, 255);
     SDL_RenderClear(renderer);
 }
 
@@ -105,30 +105,26 @@ void renderGameSwitcher()
 {
     SDL_Color textColor = {255, 25, 150, 0};
 
-    bool drawPicture = false;
-    bool drawList = true;
-    int games = 10;
-    if (games > gameList.size())
-    {
-        games = gameList.size();
-    }
-    if (games > 0)
-    {
-        // Ensure negative numbers wrap around
-        selectedGameIndex = (selectedGameIndex + games * 100) % games;
-    }
-    else
-    {
-        selectedGameIndex = 0;
-    }
+    bool drawPicture = true;
+    bool drawList = false;
 
     if (drawPicture)
     {
+        if (selectedGame.active)
+        {
+            string prettyName = selectedGame.name;
+            int maxLen = 40;
+            if (prettyName.length() > maxLen)
+            {
+                prettyName = prettyName.substr(0, maxLen - 2) + "...";
+            }
+            drawTextCentered(prettyName, defaultFont, renderer, 0, 400, 640, defaultTextColor);
+        }
     }
     if (drawList)
     {
         string text = "Game Switcher\nRoms: " + to_string(gameList.size()) + "\n";
-        for (int i = 0; i < games; i++)
+        for (int i = 0; i < gameList.size(); i++)
         {
             string prettyName = gameList[i].name;
             int maxLen = 40;
@@ -147,13 +143,43 @@ void renderGameSwitcher()
         }
         drawTextWrapped(text, defaultFont, renderer, 4, 12, 640, defaultTextColor);
     }
-    drawTextWrapped("X: Exit\nMENU + SELECT: Shutoff\nPress 'A' to start game...", defaultFont, renderer, 4, 424, 640, defaultTextColor);
+    // drawTextWrapped("X: Exit\nMENU + SELECT: Shutoff\nPress 'A' to start game...", defaultFont, renderer, 4, 424, 640, defaultTextColor);
+    drawTextCentered("A: Start Game    X: Quit", defaultFont, renderer, 4, 440, 640, defaultTextColor);
 }
 
+// Blit a color to the screen. Can be transparent
+void renderColor(SDL_Color color)
+{
+    SDL_Rect rect = {
+        0,
+        0,
+        swWidth,
+        swHeight,
+    };
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+    SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
+    SDL_RenderFillRect(renderer, &rect);
+}
 // Update the screen
 void applyRender()
 {
     SDL_RenderPresent(renderer);
+}
+
+void updateSelectedGame()
+{
+    int games = gameList.size();
+    if (games > 0)
+    {
+        // Ensure negative numbers wrap around
+        selectedGameIndex = (selectedGameIndex + games * 100) % games;
+        selectedGame = gameList[selectedGameIndex];
+    }
+    else
+    {
+        selectedGameIndex = 0;
+        selectedGame = {};
+    }
 }
 
 void startSDLPhase()
@@ -210,18 +236,6 @@ void startSDLPhase()
         if (SDL_JoystickGetButton(joystick, RGBUTTON_A) || keyboardState[SDL_SCANCODE_SPACE])
         {
             startNextPhase = 1;
-            if (gameList.size() > 0)
-            {
-                if (selectedGameIndex >= gameList.size())
-                {
-                    selectedGameIndex = gameList.size() - 1;
-                }
-                if (selectedGameIndex < 0)
-                {
-                    selectedGameIndex = 0;
-                }
-                selectedGame = gameList[selectedGameIndex];
-            }
         }
 
         // Handle Directional input
@@ -255,6 +269,8 @@ void startSDLPhase()
                 dasTimer = 0.0;
             }
         }
+
+        updateSelectedGame();
 
         // Render and wait for next frame
         startRender();
@@ -293,6 +309,12 @@ int main(int argc, char *argv[])
     {
         gameList = loadGameListAtPath(MUOS_HISTORY_DIR);
 
+        // Trim list to 10 games
+        if (gameList.size() > 10)
+        {
+            gameList.resize(10);
+        }
+
         startSDLPhase();
 
         if (needShutdown)
@@ -301,10 +323,11 @@ int main(int argc, char *argv[])
             startRender();
             renderBlackScreen();
             applyRender();
+            std::this_thread::sleep_for(std::chrono::milliseconds(200));
             sync();
-            std::this_thread::sleep_for(std::chrono::milliseconds(1750));
+            std::this_thread::sleep_for(std::chrono::milliseconds(2000));
             cleanupSDL();
-            std::this_thread::sleep_for(std::chrono::milliseconds(250));
+            std::this_thread::sleep_for(std::chrono::milliseconds(200));
             if (!debugMode)
             {
                 reboot(RB_POWER_OFF);
@@ -324,7 +347,6 @@ int main(int argc, char *argv[])
 
         if (selectedGame.active)
         {
-
             try
             {
                 string launchPath = fs::current_path().string() + "/assets/sh/mylaunch.sh";
@@ -341,24 +363,25 @@ int main(int argc, char *argv[])
                 printf("Finished writing Game Info\n\n");
                 printf("Proceeding to game...\n");
 
-                // Extra sleep for no reason
+                renderColor({0, 0, 0, 170});
+                applyRender();
+
                 std::this_thread::sleep_for(std::chrono::milliseconds(25));
                 cleanupSDL();
-                std::this_thread::sleep_for(std::chrono::milliseconds(25));
                 sync();
                 std::this_thread::sleep_for(std::chrono::milliseconds(25));
 
                 string romPath = selectedGame.drive + selectedGame.folder + "/" + selectedGame.fileName;
                 string cmd = "/mnt/mmc/MUOS/retroarch -c \"/mnt/mmc/MUOS/.retroarch/retroarch.cfg\" -L \"/mnt/mmc/MUOS/core/" + selectedGame.core + "\" \"" + romPath + "\"";
                 printf("Executing Command: %s\n", cmd.c_str());
-
                 // Execute the command when not in debug mode
                 if (!debugMode)
                 {
                     system(cmd.c_str());
                 }
-
                 std::this_thread::sleep_for(std::chrono::milliseconds(25));
+                sync();
+                std::this_thread::sleep_for(std::chrono::milliseconds(150));
             }
             catch (const std::exception &e)
             {

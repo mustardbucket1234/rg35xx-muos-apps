@@ -7,5 +7,5 @@
 
 void drawTextWrapped(const std::string &text, TTF_Font *font, SDL_Renderer *screen, int x, int y, int width, const SDL_Color &color);
 void drawText(const std::string &text, TTF_Font *font, SDL_Renderer *screen, int x, int y, const SDL_Color &color);
-
+void drawTextCentered(const std::string &text, TTF_Font *font, SDL_Renderer *screen, int x, int y, int width, const SDL_Color &color);
 #endif

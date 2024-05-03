@@ -7,6 +7,7 @@
 #include <string>
 #include <algorithm>
 #include "gameInfo.h"
+#include "helpers/strHelpers.h"
 
 using namespace std;
 
@@ -78,15 +79,6 @@ GameInfoData writeGameInfo(string filePath, GameInfoData game)
         std::cerr << "Error opening file: " << filePath << std::endl;
     }
     return game;
-}
-
-bool strEndsWith(string str, string suffix)
-{
-    if (str.length() < suffix.length())
-    {
-        return false;
-    }
-    return str.compare(str.length() - suffix.length(), suffix.length(), suffix) == 0;
 }
 
 vector<GameInfoData> loadGameListAtPath(string folderPath)
