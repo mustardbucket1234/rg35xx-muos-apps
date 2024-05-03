@@ -7,7 +7,7 @@ make CONFIG_ARM7=1
 rm -rf dist/data/bin
 
 echo "Deleted dist/data folder"
-sleep 3
+sleep 1
 
 
 mkdir -p dist/data

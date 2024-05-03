@@ -9,6 +9,7 @@
 
 #include "font.h"
 #include "gameInfo.h"
+#include <unistd.h>
 
 #include <sys/types.h>
 #include <sys/reboot.h>
@@ -92,7 +93,7 @@ void applyRender()
 
     string text = "Game Switcher\n Roms: " + to_string(gameList.size()) + "\n";
 
-    int maxGames = 5;
+    int maxGames = 10;
     if (maxGames > gameList.size())
     {
         maxGames = gameList.size();
@@ -108,7 +109,7 @@ void applyRender()
     for (int i = 0; i < maxGames; i++)
     {
         string prettyName = gameList[i].name;
-        int maxLen = 16;
+        int maxLen = 40;
         if (prettyName.length() > maxLen)
         {
             prettyName = prettyName.substr(0, maxLen - 2) + "...";
@@ -133,6 +134,8 @@ void applyRender()
 void startSDLPhase()
 {
     initSDL();
+
+    selectedGameIndex = 0;
 
     startRender();
     applyRender();
@@ -224,41 +227,64 @@ int main(int argc, char *argv[])
 
     cout << "Starting game switcher" << endl;
 
-    gameList = loadGameListAtPath("/mnt/mmc/MUOS/info/history");
-    startSDLPhase();
-
-    if (needShutdown)
+    for (int i = 0; i < 999; i++)
     {
-        printf("User has triggerd a shutdown....\n");
-#ifndef DEBUG
-        reboot(RB_POWER_OFF);
-#endif
-        return 1;
-    }
-    else if (needExit)
-    {
-        printf("User has triggered an exit...\n");
-        return 1;
-    }
-
-    if (selectedGame.active)
-    {
-
-        string launchPath = fs::current_path().string() + "/assets/sh/mylaunch.sh";
-        printf("Launch Path: %s\n", launchPath.c_str());
-        printf("Name: %s\n", selectedGame.name.c_str());
-
-#ifndef DEBUG
-        printf("Writing Game Info\n");
-        writeGameInfo(ROM_GO, selectedGame);
-
-        string historyPath = MUOS_HISTORY_DIR + "/" + selectedGame.name + ".cfg";
-        writeGameInfo(historyPath, selectedGame);
-
-        printf("Finished writing Game Info\n\n");
+#ifdef DEBUG
+        gameList = loadGameListAtPath("/mnt/e/RG35xx/MuOSDump/.mnt.mmc/MUOS/info/history");
+#else
+        gameList = loadGameListAtPath("/mnt/mmc/MUOS/info/history");
 #endif
 
-        printf("Proceeding to game...\n");
+        startSDLPhase();
+
+        if (needShutdown)
+        {
+            printf("User has triggerd a shutdown....\n");
+            std::this_thread::sleep_for(std::chrono::milliseconds(750));
+#ifndef DEBUG
+            reboot(RB_POWER_OFF);
+#endif
+            return 1;
+        }
+        else if (needExit)
+        {
+            printf("User has triggered an exit...\n");
+            return 1;
+        }
+
+        if (selectedGame.active)
+        {
+
+            string launchPath = fs::current_path().string() + "/assets/sh/mylaunch.sh";
+            printf("Launch Path: %s\n", launchPath.c_str());
+            printf("Name: %s\n", selectedGame.name.c_str());
+
+            printf("Writing Game Info\n");
+            string historyPath = MUOS_HISTORY_DIR + "/" + selectedGame.name + ".cfg";
+
+#ifndef DEBUG
+            // writeGameInfo(ROM_GO, selectedGame);
+            writeGameInfo(historyPath, selectedGame);
+#endif
+
+            printf("Finished writing Game Info\n\n");
+            printf("Proceeding to game...\n");
+
+            std::this_thread::sleep_for(std::chrono::milliseconds(25));
+            sync();
+            std::this_thread::sleep_for(std::chrono::milliseconds(25));
+            // Execute assets/sh/mylaunch.sh
+            // system("/mnt/mmc/MUOS/retroarch");
+            /// system(launchPath.c_str());
+
+            string romPath = selectedGame.drive + selectedGame.folder + "/" + selectedGame.fileName;
+            string cmd = "/mnt/mmc/MUOS/retroarch -c \"/mnt/mmc/MUOS/.retroarch/retroarch.cfg\" -L \"/mnt/mmc/MUOS/core/" + selectedGame.core + "\" \"" + romPath + "\"";
+            printf("Executing Command: %s\n", cmd.c_str());
+#ifndef DEBUG
+            system(cmd.c_str());
+#endif
+            std::this_thread::sleep_for(std::chrono::milliseconds(150));
+        }
     }
     return 0;
 }
