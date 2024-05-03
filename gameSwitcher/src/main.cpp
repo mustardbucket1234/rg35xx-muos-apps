@@ -33,6 +33,10 @@ TTF_Font *defaultFont = nullptr;
 TTF_Font *titleFont = nullptr;
 SDL_Joystick *joystick = nullptr;
 
+vector<GameInfoData> gameList;
+GameInfoData selectedGame;
+int selectedGameIndex;
+
 enum RGPad
 {
     RGPAD_UP = 1,
@@ -85,8 +89,42 @@ void startRender()
 void applyRender()
 {
     SDL_Color textColor = {255, 25, 150, 0};
-    drawTextWrapped("Game Loader", titleFont, renderer, 15, 150, 640, textColor);
-    drawTextWrapped("Test Project\nPress any key or button to launch game...", defaultFont, renderer, 4, 424, 640, defaultTextColor);
+
+    string text = "Game Switcher\n Roms: " + to_string(gameList.size()) + "\n";
+
+    int maxGames = 5;
+    if (maxGames > gameList.size())
+    {
+        maxGames = gameList.size();
+    }
+    if (maxGames > 0)
+    {
+        selectedGameIndex = (selectedGameIndex + maxGames * 5) % maxGames;
+    }
+    else
+    {
+        selectedGameIndex = 0;
+    }
+    for (int i = 0; i < maxGames; i++)
+    {
+        string prettyName = gameList[i].name;
+        int maxLen = 16;
+        if (prettyName.length() > maxLen)
+        {
+            prettyName = prettyName.substr(0, maxLen - 2) + "...";
+        }
+        if (i == selectedGameIndex)
+        {
+            text += "> " + prettyName + "\n";
+        }
+        else
+        {
+            text += prettyName + "\n";
+        }
+    }
+    drawTextWrapped(text, defaultFont, renderer, 4, 12, 640, defaultTextColor);
+
+    drawTextWrapped("X: Exit\nMENU + SELECT: Shutoff\nPress 'A' to start game...", defaultFont, renderer, 4, 424, 640, defaultTextColor);
 
     // Update the screen
     SDL_RenderPresent(renderer);
@@ -95,16 +133,19 @@ void applyRender()
 void startSDLPhase()
 {
     initSDL();
-    // Wait for a key press before quitting
-    SDL_Event event;
 
     startRender();
     applyRender();
 
+    // Wait 300 ms
+    std::this_thread::sleep_for(std::chrono::milliseconds(300));
+
+    SDL_Event event;
     bool startNextPhase = false;
     while (!startNextPhase)
     {
-        while (SDL_WaitEvent(&event))
+
+        while (SDL_PollEvent(&event))
         {
             if (event.type == SDL_QUIT)
             {
@@ -112,29 +153,61 @@ void startSDLPhase()
                 startNextPhase = 1;
                 break;
             }
-            else if ((event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_ESCAPE) ||
-                     (event.type == SDL_JOYBUTTONDOWN && event.jbutton.button == RGBUTTON_MENU))
-            {
-                needExit = true;
-                startNextPhase = 1;
-                break;
-            }
-            else if ((event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_SPACE) ||
-                     (event.type == SDL_JOYBUTTONDOWN && (event.jbutton.button == RGBUTTON_START || event.jbutton.button == RGBUTTON_A)))
-            {
-                startNextPhase = 1;
-                break;
-            }
         }
 
-        if (startNextPhase == 1)
+        const Uint8 *keyboardState = SDL_GetKeyboardState(NULL);
+
+        // Shutdown if MENU + SELECT is pressed
+        // Or if the user presses the Z key
+        if ((SDL_JoystickGetButton(joystick, RGBUTTON_MENU) && SDL_JoystickGetButton(joystick, RGBUTTON_SELECT)) ||
+            keyboardState[SDL_SCANCODE_Z])
         {
-            break;
+            needExit = true;
+            needShutdown = true;
+            startNextPhase = 1;
+        }
+
+        // Exit if the user presses X or ESC
+        if (SDL_JoystickGetButton(joystick, RGBUTTON_X) || keyboardState[SDL_SCANCODE_ESCAPE])
+        {
+            needExit = true;
+            startNextPhase = 1;
+        }
+
+        if (SDL_JoystickGetHat(joystick, 0) == RGPAD_DOWN || SDL_JoystickGetHat(joystick, 0) == RGPAD_RIGHT)
+        {
+            selectedGameIndex++;
+        }
+        else if (SDL_JoystickGetHat(joystick, 0) == RGPAD_UP || SDL_JoystickGetHat(joystick, 0) == RGPAD_LEFT)
+        {
+            selectedGameIndex--;
+        }
+        // Continue if user presses A or SPACE
+        if (SDL_JoystickGetButton(joystick, RGBUTTON_A) || keyboardState[SDL_SCANCODE_SPACE])
+        {
+            startNextPhase = 1;
+            if (gameList.size() > 0)
+            {
+                if (selectedGameIndex >= gameList.size())
+                {
+                    selectedGameIndex = gameList.size() - 1;
+                }
+                if (selectedGameIndex < 0)
+                {
+                    selectedGameIndex = 0;
+                }
+                selectedGame = gameList[selectedGameIndex];
+            }
         }
 
         startRender();
         applyRender();
+
         SDL_Delay(30);
+        if (startNextPhase == 1)
+        {
+            break;
+        }
     }
 
     SDL_DestroyRenderer(renderer);
@@ -149,55 +222,43 @@ int main(int argc, char *argv[])
 {
     setbuf(stdout, NULL);
 
-    for (int i = 0; i < 5; i++)
+    cout << "Starting game switcher" << endl;
+
+    gameList = loadGameListAtPath("/mnt/mmc/MUOS/info/history");
+    startSDLPhase();
+
+    if (needShutdown)
     {
+        printf("User has triggerd a shutdown....\n");
+#ifndef DEBUG
+        reboot(RB_POWER_OFF);
+#endif
+        return 1;
+    }
+    else if (needExit)
+    {
+        printf("User has triggered an exit...\n");
+        return 1;
+    }
 
-        cout << "Starting game switcher. Iteration: " << i << endl;
-        startSDLPhase();
-
-        if (needExit)
-        {
-            // Quit Immediately
-            break;
-        }
-
-        GameInfoData romInfo = {
-            "Legend of Zelda, The - Link's Awakening DX (USA, Europe) (Rev 2) (SGB Enhanced) (GB Compatible)",
-            "mgba_libretro.so",
-            "Nintendo Game Boy Color",
-            "/mnt/mmc/roms/",
-            "GBC",
-            "Legend of Zelda, The - Link's Awakening DX (USA, Europe) (Rev 2) (SGB Enhanced) (GB Compatible).gbc"};
+    if (selectedGame.active)
+    {
 
         string launchPath = fs::current_path().string() + "/assets/sh/mylaunch.sh";
         printf("Launch Path: %s\n", launchPath.c_str());
-        printf("Name: %s\n", romInfo.name.c_str());
+        printf("Name: %s\n", selectedGame.name.c_str());
 
 #ifndef DEBUG
         printf("Writing Game Info\n");
-        writeGameInfo(ROM_GO, romInfo);
+        writeGameInfo(ROM_GO, selectedGame);
 
-        string historyPath = MUOS_HISTORY_DIR + "/" + romInfo.name + ".cfg";
-        writeGameInfo(historyPath, romInfo);
+        string historyPath = MUOS_HISTORY_DIR + "/" + selectedGame.name + ".cfg";
+        writeGameInfo(historyPath, selectedGame);
 
         printf("Finished writing Game Info\n\n");
 #endif
 
-        break;
+        printf("Proceeding to game...\n");
     }
-    if (needShutdown)
-    {
-#ifndef DEBUG
-        reboot(RB_POWER_OFF);
-#endif
-
-        return 1;
-    }
-
-    if (needExit)
-    {
-        return 1;
-    }
-
     return 0;
 }

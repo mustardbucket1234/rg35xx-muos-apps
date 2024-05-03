@@ -6,7 +6,7 @@ NEXT_PLAY_FILE="next_play.txt"
 HOME=$(realpath "$(dirname "$0")")
 cd "$HOME"
 
-sleep 0.1
+sleep 0.3
 
 MAX_WAIT_TIME=50
 counter=0
