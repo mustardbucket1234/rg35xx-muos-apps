@@ -3,7 +3,7 @@
 ROM_LAST=/tmp/rom_last
 ROM_LAST_DATA=""
 cd "$(realpath "$(dirname "$0")")"
-cd "data"
+cd ".data"
 
 # Get the data of the current script
 # Store it in next_play.txt
@@ -19,12 +19,3 @@ cd "bin"
 APP_PID=$!
 wait $APP_PID
 APP_EXIT_CODE=$?
-cd ..
-
-# if [ $APP_EXIT_CODE -ne 0 ]; then
-#     echo "App was exitted by user"
-#     rm "next_play.txt"
-# else
-#     echo "./app executed successfully. Trigger resumePlay.sh"
-#     ./resumePlay.sh &
-# fi
