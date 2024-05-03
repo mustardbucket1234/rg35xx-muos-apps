@@ -16,7 +16,7 @@ CC = g++
 
 # includes and libs
 INCS = -I. -I/usr/include/SDL -D_GNU_SOURCE=1 -D_REENTRANT -DRG35XX
-LIBS = -lc -L/usr/lib -lSDL2 -lSDL2_ttf -lpthread -Wl,-Bstatic,-lutil,-Bdynamic
+LIBS = -lc -L/usr/lib -lSDL2 -lSDL2_ttf -lSDL2_image -lpthread -Wl,-Bstatic,-lutil,-Bdynamic
 
 # flags
 CPPFLAGS = -DVERSION=\"${VERSION}\" -fPIC

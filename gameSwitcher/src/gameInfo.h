@@ -21,11 +21,13 @@ struct GameInfoData
 
 struct GameVisualData
 {
-    std::string name;
+    bool active = false;
+    std::string filePath;
 };
 
 GameInfoData loadGameInfo(std::string filePath);
 GameInfoData writeGameInfo(std::string filePath, GameInfoData game);
 std::vector<GameInfoData> loadGameListAtPath(std::string folderPath);
+GameVisualData loadGameVisualData(GameInfoData game, std::string folderPath);
 
 #endif

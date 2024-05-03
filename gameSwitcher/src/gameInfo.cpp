@@ -6,6 +6,7 @@
 #include <vector>
 #include <string>
 #include <algorithm>
+#include <cctype>
 #include "gameInfo.h"
 #include "helpers/strHelpers.h"
 
@@ -113,4 +114,57 @@ vector<GameInfoData> loadGameListAtPath(string folderPath)
         }
     }
     return games;
+}
+
+GameVisualData loadGameVisualData(GameInfoData game, string folderPath)
+{
+    GameVisualData visualData;
+    if (game.active)
+    {
+        printf("loadGameVisualData...: %s\n", game.name.c_str());
+        printf("folderPath.: %s\n", folderPath.c_str());
+        string subFolderPath;
+        for (const auto &entry : filesystem::directory_iterator(folderPath))
+        {
+            if (entry.is_directory())
+            {
+                string filename = entry.path().filename();
+                // printf("filename: %s\n", filename.c_str());
+                printf("core: %s\n", strToUpper(game.core).c_str());
+                printf("folder: %s\n", strToUpper(filename).c_str());
+                if (strStartsWith(strToUpper(game.core), strToUpper(filename)))
+                {
+                    subFolderPath = entry.path().string();
+                    printf("FOUND SAVE FOLDER");
+                    break;
+                }
+            }
+        }
+        if (subFolderPath.length() > 0)
+        {
+            printf("subFolderPath: %s\n", subFolderPath.c_str());
+            vector<filesystem::directory_entry> screenShots;
+
+            // Check if directory exists
+            if (filesystem::exists(subFolderPath))
+            {
+                for (const auto &entry : filesystem::directory_iterator(subFolderPath))
+                {
+                    if (entry.path().extension() == ".png" && strStartsWith(strToUpper(entry.path().filename()), strToUpper(game.name)))
+                    {
+                        screenShots.push_back(entry);
+                    }
+                }
+                std::sort(screenShots.begin(), screenShots.end(), [](const filesystem::directory_entry &a, const filesystem::directory_entry &b)
+                          { return filesystem::last_write_time(a) > filesystem::last_write_time(b); });
+
+                if (screenShots.size() > 0)
+                {
+                    visualData.active = true;
+                    visualData.filePath = screenShots[0].path().string();
+                }
+            }
+        }
+    }
+    return visualData;
 }

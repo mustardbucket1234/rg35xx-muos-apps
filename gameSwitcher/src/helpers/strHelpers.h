@@ -23,4 +23,24 @@ bool strStartsWith(std::string str, std::string prefix)
     return str.compare(0, prefix.length(), prefix) == 0;
 }
 
+std::string strToUpper(const std::string &str)
+{
+    std::string result(str); // Create a copy of str
+    for (char &c : result)
+    {
+        c = std::toupper(c);
+    }
+    return result;
+}
+
+std::string strToLower(const std::string &str)
+{
+    std::string result(str); // Create a copy of str
+    for (char &c : result)
+    {
+        c = std::tolower(c);
+    }
+    return result;
+}
+
 #endif

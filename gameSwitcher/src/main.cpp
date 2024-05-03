@@ -13,6 +13,7 @@
 
 #include <sys/types.h>
 #include <sys/reboot.h>
+#include <SDL2/SDL_image.h>
 
 using namespace std;
 namespace fs = std::filesystem;
@@ -29,9 +30,11 @@ string ROM_GO = "/tmp/rom_go";
 #ifdef DEBUG
 bool debugMode = true;
 string MUOS_HISTORY_DIR = "/mnt/muOSDump/mnt/mmc/MUOS/info/history";
+string MUOS_SAVE_DIR = "/mnt/muOSDump/mnt/mmc/MUOS/save/state";
 #else
 bool debugMode = false;
 string MUOS_HISTORY_DIR = "/mnt/mmc/MUOS/info/history";
+string MUOS_SAVE_DIR = "/mnt/mmc/MUOS/save/state";
 #endif
 
 SDL_Color defaultTextColor = {0, 0, 0, 255};
@@ -43,6 +46,7 @@ SDL_Joystick *joystick = nullptr;
 
 vector<GameInfoData> gameList;
 GameInfoData selectedGame;
+GameVisualData selectedGameVisual;
 int selectedGameIndex;
 
 enum RGPad
@@ -143,8 +147,22 @@ void renderGameSwitcher()
         }
         drawTextWrapped(text, defaultFont, renderer, 4, 12, 640, defaultTextColor);
     }
-    // drawTextWrapped("X: Exit\nMENU + SELECT: Shutoff\nPress 'A' to start game...", defaultFont, renderer, 4, 424, 640, defaultTextColor);
-    drawTextCentered("A: Start Game    X: Quit", defaultFont, renderer, 4, 440, 640, defaultTextColor);
+    if (selectedGameVisual.active)
+    {
+        drawTextCentered(selectedGameVisual.filePath, defaultFont, renderer, 4, 25, 640, defaultTextColor);
+
+        // Draw the image
+
+        SDL_Surface *surface = IMG_Load(selectedGameVisual.filePath.c_str());
+        if (surface != nullptr)
+        {
+            SDL_Texture *texture = SDL_CreateTextureFromSurface(renderer, surface);
+            SDL_RenderCopy(renderer, texture, nullptr, nullptr);
+            SDL_FreeSurface(surface);
+            SDL_DestroyTexture(texture);
+        }
+    }
+    drawTextCentered("A:Start    X:Quit    MENU:Power", defaultFont, renderer, 4, 440, 640, defaultTextColor);
 }
 
 // Blit a color to the screen. Can be transparent
@@ -180,6 +198,12 @@ void updateSelectedGame()
         selectedGameIndex = 0;
         selectedGame = {};
     }
+
+    selectedGameVisual = {};
+    if (selectedGame.active)
+    {
+        selectedGameVisual = loadGameVisualData(selectedGame, MUOS_SAVE_DIR);
+    }
 }
 
 void startSDLPhase()
@@ -199,6 +223,8 @@ void startSDLPhase()
     bool startNextPhase = false;
     double dasTimer = 0.0;
     double deltaTime = 0.0;
+    double shutoffHoldTimer = 0.0;
+    double sdlTime = 0.0;
     uint32_t lastTicks = SDL_GetTicks();
 
     // SDL Update loop
@@ -215,18 +241,8 @@ void startSDLPhase()
         }
 
         const Uint8 *keyboardState = SDL_GetKeyboardState(NULL);
-
-        // Shutdown if MENU + SELECT is pressed
-        if ((SDL_JoystickGetButton(joystick, RGBUTTON_MENU) && SDL_JoystickGetButton(joystick, RGBUTTON_SELECT)) ||
-            keyboardState[SDL_SCANCODE_Z])
-        {
-            needExit = true;
-            needShutdown = true;
-            startNextPhase = 1;
-        }
-
-        // Exit if the user presses X or ESC
-        if (SDL_JoystickGetButton(joystick, RGBUTTON_X) || keyboardState[SDL_SCANCODE_ESCAPE])
+        // Exit if the user presses X
+        if (SDL_JoystickGetButton(joystick, RGBUTTON_X) || keyboardState[SDL_SCANCODE_X])
         {
             needExit = true;
             startNextPhase = 1;
@@ -272,15 +288,51 @@ void startSDLPhase()
 
         updateSelectedGame();
 
-        // Render and wait for next frame
-        startRender();
-        renderGameSwitcher();
-        applyRender();
-        SDL_Delay(30);
+        // Shutdown if MENU or ESCAPE is held
+        if (sdlTime > 0.25 && (SDL_JoystickGetButton(joystick, RGBUTTON_MENU) || keyboardState[SDL_SCANCODE_ESCAPE]))
+        {
+            // drawTextCentered("Hold to Power Off...", defaultFont, renderer, 0, 200, 640, defaultTextColor);
+            // if (shutoffHoldTimer > 0.4)
+            //{
+            //     renderColor({0, 0, 0, 25});
+            // }
+            // else
+            //{
+
+            //    renderColor({0, 0, 0, 3});
+            //}
+
+            // shutoffHoldTimer += deltaTime;
+            // if (SDL_JoystickGetButton(joystick, RGBUTTON_SELECT))
+            //{
+            //     // If select is held, exit immediately
+            //     shutoffHoldTimer += 1;
+            // }
+
+            shutoffHoldTimer += 1;
+            if (shutoffHoldTimer > 0.8)
+            {
+                needExit = true;
+                needShutdown = true;
+                startNextPhase = 1;
+            }
+            applyRender();
+            SDL_Delay(30);
+        }
+        else
+        {
+            shutoffHoldTimer = 0;
+            // Render and wait for next frame
+            startRender();
+            renderGameSwitcher();
+            applyRender();
+            SDL_Delay(30);
+        }
 
         uint32_t currentTicks = SDL_GetTicks();
         deltaTime = (currentTicks - lastTicks) / 1000.0;
         lastTicks = currentTicks;
+        sdlTime += deltaTime;
 
         if (startNextPhase == 1)
         {
@@ -323,6 +375,7 @@ int main(int argc, char *argv[])
             startRender();
             renderBlackScreen();
             applyRender();
+            // Ensure everything is saved before shutting down
             std::this_thread::sleep_for(std::chrono::milliseconds(200));
             sync();
             std::this_thread::sleep_for(std::chrono::milliseconds(2000));
