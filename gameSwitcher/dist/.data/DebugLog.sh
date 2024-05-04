@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # Change directory to the script location
 cd $(realpath "$(dirname "$0")")
 cd ..

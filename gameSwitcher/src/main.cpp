@@ -131,7 +131,7 @@ void renderGameSwitcher()
         {
             // Draw the image
             string path = selectedGameVisual.filePath;
-            mrenderer->drawPreserveAspect(path, 320, 240, 640, 480, 0, 1);
+            mrenderer->drawPreserveAspect(path, 320, 240, 640, 400, 0, 1);
         }
 
         mrenderer->draw(header, 0, 0, 640, 40);
@@ -295,29 +295,28 @@ void startSDLPhase()
 
         updateSelectedGame();
 
-        // Shutdown if MENU or ESCAPE is held
-        if (sdlTime > 0.35 && (SDL_JoystickGetButton(joystick, RGBUTTON_MENU) || keyboardState[SDL_SCANCODE_ESCAPE]))
+        // Shutdown if MENU or ESCAPE is pressed
+        if (sdlTime > 0.15 && (SDL_JoystickGetButton(joystick, RGBUTTON_MENU) || keyboardState[SDL_SCANCODE_ESCAPE]))
         {
             // drawTextCentered("Hold to Power Off...", defaultFont, renderer, 0, 200, 640, defaultTextColor);
-            // if (shutoffHoldTimer > 0.4)
-            //{
-            //     renderColor({0, 0, 0, 25});
-            // }
-            // else
-            //{
+            if (shutoffHoldTimer > 0.34)
+            {
+                renderColor({0, 0, 0, 32});
+            }
+            else
+            {
 
-            //    renderColor({0, 0, 0, 3});
-            //}
+                renderColor({0, 0, 0, 5});
+            }
 
-            // shutoffHoldTimer += deltaTime;
-            // if (SDL_JoystickGetButton(joystick, RGBUTTON_SELECT))
-            //{
-            //     // If select is held, exit immediately
-            //     shutoffHoldTimer += 1;
-            // }
+            shutoffHoldTimer += deltaTime;
+            if (SDL_JoystickGetButton(joystick, RGBUTTON_SELECT))
+            {
+                // If select is held, exit immediately
+                shutoffHoldTimer += 1;
+            }
 
-            shutoffHoldTimer += 1;
-            if (shutoffHoldTimer > 0.8)
+            if (shutoffHoldTimer > 0.9)
             {
                 needExit = true;
                 needShutdown = true;
@@ -427,13 +426,25 @@ int main(int argc, char *argv[])
                 // drawTextCentered("Launching Game...", titleFont, renderer, 0, 200, 640, {255, 255, 255, 45});
                 applyRender();
 
-                std::this_thread::sleep_for(std::chrono::milliseconds(25));
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
                 cleanupSDL();
                 sync();
                 std::this_thread::sleep_for(std::chrono::milliseconds(25));
 
                 string romPath = selectedGame.drive + selectedGame.folder + "/" + selectedGame.fileName;
-                string cmd = "/mnt/mmc/MUOS/retroarch -c \"/mnt/mmc/MUOS/.retroarch/retroarch.cfg\" -L \"/mnt/mmc/MUOS/core/" + selectedGame.core + "\" \"" + romPath + "\"";
+                string cmd = "";
+
+                // Check if /mnt/mmc/MUOS/.retroarch/retroarch.cfg exists
+                if (fs::exists("/mnt/mmc/MUOS/.retroarch/retroarch.cfg"))
+                {
+                    // V10
+                    cmd = "/mnt/mmc/MUOS/retroarch -c \"/mnt/mmc/MUOS/.retroarch/retroarch.cfg\" -L \"/mnt/mmc/MUOS/core/" + selectedGame.core + "\" \"" + romPath + "\"";
+                }
+                else
+                {
+                    // V11
+                    cmd = "retroarch -c \"/mnt/mmc/MUOS/retroarch/retroarch.cfg\" -L \"/mnt/mmc/MUOS/core/" + selectedGame.core + "\" \"" + romPath + "\"";
+                }
                 printf("Executing Command: %s\n", cmd.c_str());
                 // Execute the command when not in debug mode
                 if (!debugMode)
@@ -442,7 +453,7 @@ int main(int argc, char *argv[])
                 }
                 std::this_thread::sleep_for(std::chrono::milliseconds(25));
                 sync();
-                std::this_thread::sleep_for(std::chrono::milliseconds(150));
+                std::this_thread::sleep_for(std::chrono::milliseconds(25));
             }
             catch (const std::exception &e)
             {

@@ -42,5 +42,44 @@ std::string strToLower(const std::string &str)
     }
     return result;
 }
+std::string strReplaceAll(const std::string &str, const std::string &from, const std::string &to)
+{
+    std::string result = str;
+    size_t startPos = 0;
+    while ((startPos = result.find(from, startPos)) != std::string::npos)
+    {
+        result.replace(startPos, from.length(), to);
+        startPos += to.length();
+    }
+    return result;
+}
+
+std::vector<std::string> strSplit(const std::string &str, char delimiter)
+{
+    std::vector<std::string> tokens;
+    std::stringstream ss(str);
+    std::string token;
+
+    while (std::getline(ss, token, delimiter))
+    {
+        tokens.push_back(token);
+    }
+
+    return tokens;
+}
+
+std::string strJoin(const std::vector<std::string> &strings, std::string delimiter)
+{
+    std::string result;
+    for (size_t i = 0; i < strings.size(); ++i)
+    {
+        if (i > 0)
+        {
+            result += delimiter;
+        }
+        result += strings[i];
+    }
+    return result;
+}
 
 #endif

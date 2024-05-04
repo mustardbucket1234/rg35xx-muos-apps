@@ -119,21 +119,55 @@ vector<GameInfoData> loadGameListAtPath(string folderPath)
 GameVisualData loadGameVisualData(GameInfoData game, string folderPath)
 {
     GameVisualData visualData;
-    if (game.active)
+    if (game.active && game.coreName.length() > 0 && game.fileName.length() > 0)
     {
-        string subFolderPath;
+        string partialMatchFolder;
+        string exactMatchFolder;
+        vector<filesystem::directory_entry> subDirectories;
         for (const auto &entry : filesystem::directory_iterator(folderPath))
         {
             if (entry.is_directory())
             {
-                string filename = entry.path().filename();
-                if (strStartsWith(strToUpper(game.core), strToUpper(filename)))
-                {
-                    subFolderPath = entry.path().string();
-                    break;
-                }
+                subDirectories.push_back(entry);
             }
         }
+
+        string normalizedCore = game.core;
+        vector<string> coreSplit = strSplit(game.core, '_');
+        if (coreSplit.size() > 1)
+        {
+            coreSplit.pop_back();
+            normalizedCore = strJoin(coreSplit, "");
+        }
+        normalizedCore = strReplaceAll(normalizedCore, " ", "");
+        normalizedCore = strReplaceAll(normalizedCore, "-", "");
+        normalizedCore = strReplaceAll(normalizedCore, "_", "");
+        normalizedCore = strToUpper(normalizedCore);
+
+        // printf("Searching for core: %s\n", normalizedCore.c_str());
+        for (const auto &entry : subDirectories)
+        {
+            string foldername = entry.path().filename();
+            string normalizedFolderName = strReplaceAll(strToUpper(foldername), " ", "");
+            normalizedFolderName = strReplaceAll(normalizedFolderName, " ", "");
+            normalizedFolderName = strReplaceAll(normalizedFolderName, "-", "");
+            normalizedFolderName = strReplaceAll(normalizedFolderName, "_", "");
+
+            if (normalizedCore == normalizedFolderName)
+            {
+                exactMatchFolder = entry.path().string();
+                // printf("Found Exact Match: %s\n", normalizedFolderName.c_str());
+                break;
+            }
+            else if (strStartsWith(normalizedFolderName, normalizedCore))
+            {
+                partialMatchFolder = entry.path().string();
+                // printf("Partial Match: %s\n", normalizedFolderName.c_str());
+            }
+        }
+
+        string subFolderPath = exactMatchFolder.length() > 0 ? exactMatchFolder : partialMatchFolder;
+
         if (subFolderPath.length() > 0)
         {
             vector<filesystem::directory_entry> screenShots;
